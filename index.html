@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRES - Gestión Districtal</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-gradient: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --accent: #3b82f6;
+            --sidebar-width: 260px;
+            --sidebar-bg: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* Glassmorphism Refined for Light Mode */
+        .glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px) saturate(160%);
+            -webkit-backdrop-filter: blur(12px) saturate(160%);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            z-index: 100;
+        }
+
+        .sidebar h1 {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            background: linear-gradient(to right, var(--accent), var(--primary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            border-radius: 0.75rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-link:hover {
+            background: var(--glass-bg);
+            color: var(--text-main);
+        }
+
+        .nav-link.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 2rem;
+            max-width: 100%;
+        }
+
+        .section {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            padding: 1.5rem;
+            border-radius: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .input-field,
+        .select-field {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .input-field:focus,
+        .select-field:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .select-field option {
+            background: white;
+            color: var(--text-main);
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 0.75rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left !important;
+        }
+
+        table th {
+            text-align: left !important;
+            padding: 1rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--glass-border);
+            font-weight: 700;
+            background: #f8fafc;
+        }
+
+        table td {
+            padding: 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        table tr:hover {
+            background: rgba(37, 99, 235, 0.02);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            width: 95%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: modalIn 0.3s ease-out;
+            position: relative;
+        }
+
+        /* Custom Scrollbar for Modal */
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-content::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .badge {
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .badge-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .badge-warning {
+            background: #fef9c3;
+            color: #854d0e;
+            border: 1px solid #fef08a;
+        }
+
+        .badge-danger {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .badge-primary {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        /* Login Screen Updates */
+        #login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #e0e7ff, #c3dafe);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .login-card {
+            width: 90%;
+            max-width: 420px;
+            padding: 3rem 2.5rem;
+            border-radius: 2rem;
+            text-align: left;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-header {
+            margin-bottom: 2.5rem;
+        }
+
+        .logo-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--primary);
+            border-radius: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 0 1.5rem 0;
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
+            color: white;
+        }
+
+        .login-header h2 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-header p {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .login-input-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            margin-left: 0.25rem;
+        }
+
+        .login-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .login-input-wrapper i {
+            position: absolute;
+            left: 1.25rem;
+            color: var(--text-muted);
+        }
+
+        .login-input-wrapper input {
+            width: 100%;
+            padding: 1rem 1rem 1rem 3.25rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            color: var(--text-main);
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .login-input-wrapper input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+
+        .error-msg {
+            color: #ef4444;
+            margin-top: 1.5rem;
+            font-size: 0.875rem;
+            display: none;
+            padding: 0.75rem;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 0.5rem;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        #app-container {
+            display: none;
+            width: 100%;
+            animation: fadeIn 0.8s ease;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen">
+        <div class="login-card glass">
+            <div class="login-header">
+                <div class="logo-icon">
+                    <i data-lucide="shield-check"></i>
+                </div>
+                <h2>TRES</h2>
+                <p>Sistema de Gestión Districtal</p>
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="login-input-group" style="text-align: left;">
+                    <label for="l_usuario">Usuario</label>
+                    <div class="login-input-wrapper">
+                        <i data-lucide="user"></i>
+                        <input type="text" id="l_usuario" required placeholder="Tu usuario">
+                    </div>
+                </div>
+                <div class="login-input-group" style="text-align: left; margin-bottom: 2rem; margin-top: 1rem;">
+                    <label for="l_pass">Contraseña</label>
+                    <div class="login-input-wrapper">
+                        <i data-lucide="lock"></i>
+                        <input type="password" id="l_pass" required placeholder="••••••••">
+                    </div>
+                </div>
+                <button type="submit" id="login-btn" class="btn btn-primary"
+                    style="width: 100%; padding: 1rem; justify-content: center; font-size: 1rem;">
+                    <span>Iniciar Sesión</span>
+                </button>
+            </form>
+            <p id="login-error" class="error-msg"></p>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <div class="sidebar">
+            <h1>TRES</h1>
+            <div class="nav-links">
+                <div class="nav-link active" onclick="showSection('miembros')"><i data-lucide="users"></i> Miembros
+                </div>
+                <div class="nav-link" onclick="showSection('padrinos')"><i data-lucide="user-check"></i> Padrinos</div>
+                <div class="nav-link" onclick="showSection('cumpleanos')"><i data-lucide="cake"></i> Cumpleaños</div>
+                <div class="nav-link" onclick="showSection('status')"><i data-lucide="bar-chart-3"></i> Status</div>
+                <div class="nav-link" onclick="showSection('reportes')"><i data-lucide="file-text"></i> Reportes</div>
+            </div>
+
+            <div id="user-info-section" style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid #f1f5f9;">
+                <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem;">
+                    <div id="user-avatar"
+                        style="width: 36px; height: 36px; background: var(--primary); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);">
+                        A
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <p id="display-username"
+                            style="font-size: 0.9rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">
+                            Admin</p>
+                        <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">Usuario Activo</p>
+                    </div>
+                </div>
+                <div class="nav-link" onclick="handleLogout()"
+                    style="color: #ef4444; margin-top: 0.5rem; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.1);">
+                    <i data-lucide="log-out"></i> Cerrar Sesión
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- SECCION MIEMBROS -->
+            <div id="miembros" class="section active">
+                <div class="header-row">
+                    <div>
+                        <h2>Miembros</h2>
+                        <p style="color: var(--text-muted)">Gestión de padrón electoral y afiliados</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openMemberModal()">
+                        <i data-lucide="plus"></i> Nuevo Miembro
+                    </button>
+                </div>
+
+                <div class="card glass" style="display: flex; gap: 1rem; align-items: center;">
+                    <i data-lucide="search" style="color: var(--text-muted)"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar por nombre o INE..." class="input-field"
+                        style="margin:0; background:transparent; border:none;" onkeyup="handleSearch(event)">
+                </div>
+
+                <div class="card glass">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Acciones</th>
+                                    <th>Nombre Completo</th>
+                                    <th>INE</th>
+                                    <th>Calle</th>
+                                    <th>Num</th>
+                                    <th>Colonia</th>
+                                    <th>C.P.</th>
+                                    <th>Sección</th>
+                                    <th>Celular</th>
+                                    <th>Status</th>
+                                    <th>Padrino</th>
+                                </tr>
+                            </thead>
+                            <tbody id="memberTableBody">
+                                <tr>
+                                    <td colspan="11">Cargando datos...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCION PADRINOS -->
+            <div id="padrinos" class="section">
+                <div class="header-row">
+                    <div>
+                        <h2>Padrinos</h2>
+                        <p style="color: var(--text-muted)">Administra el listado de padrinos</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openPadrinoModal()">
+                        <i data-lucide="plus"></i> Nuevo Padrino
+                    </button>
+                </div>
+                <div class="card glass">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Acciones</th>
+                                    <th>Nombre</th>
+                                </tr>
+                            </thead>
+                            <tbody id="padrinosTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCION CUMPLEAÑOS -->
+            <div id="cumpleanos" class="section">
+                <div class="header-row">
+                    <div>
+                        <h2>Cumpleaños</h2>
+                        <p style="color: var(--text-muted)">Consulta los cumpleañeros por mes y día</p>
+                    </div>
+                </div>
+
+                <div class="card glass">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Mes</label>
+                            <select id="cumple_mes" class="select-field" onchange="fetchCumpleanos()"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Día</label>
+                            <select id="cumple_dia" class="select-field" onchange="fetchCumpleanos()"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card glass">
+                    <p id="cumpleCount" style="color: var(--text-muted); margin-bottom:1rem; font-size:0.85rem"></p>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nombre Completo</th>
+                                    <th>Mes</th>
+                                    <th>Día</th>
+                                    <th>Celular</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cumpleTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCION STATUS -->
+            <div id="status" class="section">
+                <div class="header-row">
+                    <div>
+                        <h2>Gestión de Status</h2>
+                        <p style="color: var(--text-muted)">Administra los tipos de status y visualiza estadísticas</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openStatusModal()">
+                        <i data-lucide="plus"></i> Nuevo Status
+                    </button>
+                </div>
+
+                <div class="grid-2" style="grid-template-columns: 1fr 1fr; align-items: start;">
+                    <!-- Lista de Status -->
+                    <div class="card glass">
+                        <h3 style="margin-bottom: 1rem; font-size: 1rem;">Listado de Status</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width: 80px">Acciones</th>
+                                        <th>ID</th>
+                                        <th>Nombre del Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="statusTableBody">
+                                    <tr>
+                                        <td colspan="3">Cargando...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico -->
+                    <div class="card glass">
+                        <h3 style="margin-bottom: 1rem; font-size: 1rem;">Distribución</h3>
+                        <div style="height: 300px; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCION REPORTES -->
+            <div id="reportes" class="section">
+                <div class="header-row">
+                    <h2>Reportes</h2>
+                </div>
+                <div class="card glass">
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label>Filtrar por Padrino:</label>
+                            <select id="rep_f_padrino" class="select-field" onchange="renderReportPreview()"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Filtrar por Status:</label>
+                            <select id="rep_f_status" class="select-field" onchange="renderReportPreview()"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Filtrar por DF:</label>
+                            <select id="rep_f_df" class="select-field" onchange="renderReportPreview()"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Filtrar por Colonia:</label>
+                            <select id="rep_f_colonia" class="select-field" onchange="renderReportPreview()"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Filtrar por Sección:</label>
+                            <select id="rep_f_seccion" class="select-field" onchange="renderReportPreview()"></select>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <button class="btn btn-primary" onclick="generatePDF()">
+                            <i data-lucide="file-down"></i> Exportar PDF
+                        </button>
+                        <button class="btn btn-primary" onclick="exportCSV()">
+                            <i data-lucide="download"></i> Exportar CSV
+                        </button>
+                    </div>
+                </div>
+                <div id="reportPreview" class="card glass" style="display:none; margin-top: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i data-lucide="eye" size="18"></i> Vista Previa de Datos
+                    </h3>
+                    <div class="table-container">
+                        <table style="text-align: left; width: 100%;">
+                            <thead style="text-align: left;">
+                                <tr style="text-align: left;">
+                                    <th style="text-align: left;">Nombre</th>
+                                    <th style="text-align: left;">Calle</th>
+                                    <th style="text-align: left;">Num</th>
+                                    <th style="text-align: left;">Colonia</th>
+                                    <th style="text-align: left;">C.P.</th>
+                                    <th style="text-align: left;">Celular</th>
+                                    <th style="text-align: left;">Status</th>
+                                    <th style="text-align: left;">Sección</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportPreviewTableBody" style="text-align: left;"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL STATUS -->
+        <div id="statusModal" class="modal-overlay">
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="header-row">
+                    <h3 id="statusModalTitle">Nuevo Status</h3>
+                    <button onclick="closeStatusModal()"
+                        style="background:none; border:none; color:var(--text-muted); cursor:pointer">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <form id="statusForm" onsubmit="saveStatus(event)">
+                    <input type="hidden" id="statusId">
+                    <div class="form-group">
+                        <label>Nombre del Status</label>
+                        <input type="text" id="s_nombre" class="input-field" required
+                            placeholder="Ej: Favor, Contra, etc.">
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:1rem; margin-top:1.5rem">
+                        <button type="button" class="btn" onclick="closeStatusModal()"
+                            style="background:#f1f5f9; color:var(--text-main)">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- MODAL PADRINO -->
+        <div id="padrinoModal" class="modal-overlay">
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="header-row">
+                    <h3 id="padrinoModalTitle">Nuevo Padrino</h3>
+                    <button onclick="closePadrinoModal()"
+                        style="background:none; border:none; color:var(--text-muted); cursor:pointer">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <form id="padrinoForm" onsubmit="savePadrino(event)">
+                    <input type="hidden" id="padrinoId">
+                    <div class="form-group">
+                        <label>Nombre del Padrino</label>
+                        <input type="text" id="p_nombre" class="input-field" required>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:1rem; margin-top:1.5rem">
+                        <button type="button" class="btn" onclick="closePadrinoModal()"
+                            style="background:#f1f5f9; color:var(--text-main)">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- MODAL MIEMBRO -->
+        <div id="memberModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="header-row">
+                    <h3 id="modalTitle">Nuevo Miembro</h3>
+                    <button onclick="closeModal()"
+                        style="background:none; border:none; color:var(--text-muted); cursor:pointer">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <form id="memberForm" onsubmit="saveMember(event)">
+                    <input type="hidden" id="memberId">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Nombres</label>
+                            <input type="text" id="f_nombres" class="input-field" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Paterno</label>
+                            <input type="text" id="f_paterno" class="input-field" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Materno</label>
+                            <input type="text" id="f_materno" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Sexo</label>
+                            <select id="f_sexo" class="select-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>INE</label>
+                            <input type="text" id="f_ine" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Cumpleaños (Mes)</label>
+                            <select id="f_mes" class="select-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Cumpleaños (Día)</label>
+                            <select id="f_dia" class="select-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Afiliación</label>
+                            <input type="date" id="f_fecha_afiliacion" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="f_status" class="select-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Padrino</label>
+                            <select id="f_padrino" class="select-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>DF</label>
+                            <select id="f_df" class="select-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Celular</label>
+                            <input type="text" id="f_celular" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="f_email" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Calle</label>
+                            <input type="text" id="f_calle" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Num</label>
+                            <input type="text" id="f_num" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Colonia</label>
+                            <input type="text" id="f_colonia" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>CP</label>
+                            <input type="text" id="f_cp" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Sección</label>
+                            <input type="text" id="f_seccion" class="input-field">
+                        </div>
+                        <div class="form-group" style="grid-column: span 2">
+                            <label>Observaciones</label>
+                            <textarea id="f_observaciones" class="input-field" rows="3"
+                                style="resize:vertical"></textarea>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:1rem; margin-top:1.5rem">
+                        <button type="button" class="btn" onclick="closeModal()"
+                            style="background:#f1f5f9; color:var(--text-main)">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            // CONFIG SUPABASE
+            const SUPABASE_URL = 'https://vlvpdntctzxswepspomr.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsdnBkbnRjdHp4c3dlcHNwb21yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0Njc4MDQsImV4cCI6MjA4NzA0MzgwNH0.L0XmDlZR5_fs2HKOblOEvnAkczxV3EN2hmlL121QcM0';
+
+            // Inicializar cliente Supabase con verificación
+            let db = null;
+            try {
+                if (window.supabase && window.supabase.createClient) {
+                    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    console.log('Cliente Supabase creado correctamente');
+                } else {
+                    throw new Error('La librería de Supabase no se cargó correctamente. Verifica tu conexión a internet.');
+                }
+            } catch (initErr) {
+                console.error('Error creando cliente Supabase:', initErr);
+            }
+
+            let optionsData = { df: [], dia: [], mes: [], padrinos: [], sexo: [], status: [] };
+            let allMiembros = [];
+            let chartInstance = null;
+
+            // INIT
+            document.addEventListener('DOMContentLoaded', async () => {
+                // Render icons for login screen
+                if (window.lucide) lucide.createIcons();
+
+                // Check session
+                const session = sessionStorage.getItem('tres_session');
+                if (session) {
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'flex';
+                    initApp();
+                }
+            });
+
+            async function initApp() {
+                try {
+                    if (!db) {
+                        throw new Error('No se pudo conectar a Supabase. Verifica tu conexión a internet y recarga la página.');
+                    }
+
+                    // Display current user
+                    const session = JSON.parse(sessionStorage.getItem('tres_session'));
+                    if (session) {
+                        document.getElementById('display-username').innerText = session.usuario;
+                        document.getElementById('user-avatar').innerText = session.usuario.charAt(0).toUpperCase();
+                    }
+
+                    lucide.createIcons();
+                    console.log('Cargando opciones...');
+                    await fetchOptions();
+                    console.log('Opciones cargadas. Cargando miembros...');
+                    await fetchMembers();
+                    console.log('Miembros cargados. Inicializando selectores...');
+                    initCumpleSelectors();
+                    console.log('App inicializada correctamente');
+                } catch (err) {
+                    console.error('Error de inicialización:', err);
+                    if (document.getElementById('memberTableBody')) {
+                        document.getElementById('memberTableBody').innerHTML =
+                            `<tr><td colspan="11" style="color:#ef4444">Error al conectar: ${err.message}</td></tr>`;
+                    }
+                }
+            }
+
+            // AUTH
+            async function handleLogin(e) {
+                e.preventDefault();
+                const usuario = document.getElementById('l_usuario').value.trim();
+                const pass = document.getElementById('l_pass').value.trim();
+                const errorEl = document.getElementById('login-error');
+                const btn = document.getElementById('login-btn');
+                const btnText = btn.querySelector('span');
+
+                errorEl.style.display = 'none';
+
+                if (!db) {
+                    errorEl.innerText = 'Error: No hay conexión con la base de datos.';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+
+                btn.disabled = true;
+                const originalText = btnText.innerText;
+                btnText.innerHTML = '<div class="loading-spinner"></div>';
+
+                try {
+                    const { data, error } = await db
+                        .from('usuarios')
+                        .select('*')
+                        .eq('usuario', usuario)
+                        .eq('contrasena', pass)
+                        .single();
+
+                    if (error) {
+                        if (error.code === 'PGRST116') { // No rows found
+                            throw new Error('Usuario o contraseña incorrectos');
+                        }
+                        throw error;
+                    }
+
+                    if (!data) throw new Error('Usuario o contraseña incorrectos');
+
+                    // Success animation
+                    document.getElementById('login-screen').style.opacity = '0';
+                    document.getElementById('login-screen').style.transform = 'scale(1.05)';
+
+                    setTimeout(() => {
+                        sessionStorage.setItem('tres_session', JSON.stringify(data));
+                        document.getElementById('login-screen').style.display = 'none';
+                        document.getElementById('app-container').style.display = 'flex';
+                        initApp();
+                    }, 500);
+
+                } catch (err) {
+                    console.error('Login error:', err);
+                    errorEl.innerText = err.message || 'Error al iniciar sesión';
+                    errorEl.style.display = 'block';
+                    btn.disabled = false;
+                    btnText.innerText = originalText;
+                }
+            }
+
+            function handleLogout() {
+                sessionStorage.removeItem('tres_session');
+                window.location.reload();
+            }
+
+            // ROUTING
+            function showSection(id) {
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                document.getElementById(id).classList.add('active');
+                event.currentTarget.classList.add('active');
+
+                if (id === 'cumpleanos') fetchCumpleanos();
+                if (id === 'padrinos') fetchPadrinos();
+                if (id === 'reportes') initReportFilters();
+                if (id === 'status') {
+                    fetchStatusList();
+                    renderChart();
+                }
+            }
+
+            function initReportFilters() {
+                fillSelect('rep_f_padrino', optionsData.padrinos, 'nombre', 'nombre');
+                fillSelect('rep_f_status', optionsData.status, 'id', 'status');
+                fillSelect('rep_f_df', optionsData.df, 'df', 'df');
+
+                // Dynamic filters from existing data
+                const colonias = [...new Set(allMiembros.map(m => m.colonia).filter(Boolean))].sort();
+                const secciones = [...new Set(allMiembros.map(m => m.seccion).filter(Boolean))].sort((a, b) => a - b);
+
+                fillSelectUnique('rep_f_colonia', colonias);
+                fillSelectUnique('rep_f_seccion', secciones);
+
+                renderReportPreview();
+            }
+
+            async function renderReportPreview() {
+                const data = await getFilteredData();
+                const container = document.getElementById('reportPreview');
+                const tbody = document.getElementById('reportPreviewTableBody');
+
+                if (data.length > 0) {
+                    container.style.display = 'block';
+                    tbody.innerHTML = data.map(m => `
+                        <tr>
+                            <td style="font-weight:600; text-align: left;">${m.nombre_completo}</td>
+                            <td style="text-align: left;">${m.calle || ''}</td>
+                            <td style="text-align: left;">${m.num || ''}</td>
+                            <td style="text-align: left;">${m.colonia || ''}</td>
+                            <td style="text-align: left;">${m.cp || ''}</td>
+                            <td style="text-align: left;">${m.celular || ''}</td>
+                            <td style="text-align: left;">${optionsData.status.find(s => s.id == m.status)?.status || m.status}</td>
+                            <td style="text-align: left;">${m.seccion || ''}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    container.style.display = 'none';
+                }
+                if (window.lucide) lucide.createIcons();
+            }
+
+            function fillSelectUnique(id, data) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.innerHTML = '<option value="">Todos...</option>' +
+                    data.map(i => `<option value="${i}">${i}</option>`).join('');
+            }
+
+            // DATA FETCHING
+            async function fetchOptions() {
+                const [df, dia, mes, pads, sex, stat] = await Promise.all([
+                    db.from('df').select('*').order('df'),
+                    db.from('dia').select('*').order('dia'),
+                    db.from('mes').select('*').order('mesid'),
+                    db.from('padrinos').select('*').order('nombre'),
+                    db.from('sexo').select('*').order('sexo'),
+                    db.from('status').select('*').order('status')
+                ]);
+
+                // Log errors from any fetch
+                [df, dia, mes, pads, sex, stat].forEach((r, idx) => {
+                    const names = ['df', 'dia', 'mes', 'padrinos', 'sexo', 'status'];
+                    if (r.error) console.error(`Error cargando ${names[idx]}:`, r.error);
+                    else console.log(`${names[idx]}: ${(r.data || []).length} registros`);
+                });
+
+                optionsData = {
+                    df: df.data || [],
+                    dia: dia.data || [],
+                    mes: mes.data || [],
+                    padrinos: pads.data || [],
+                    sexo: sex.data || [],
+                    status: stat.data || []
+                };
+
+                // Populate Form Selects
+                // Mes: guardar mesid como valor (porque en miembros.mes se guarda el número)
+                fillSelect('f_sexo', optionsData.sexo, 'sexo', 'sexo');
+                fillSelect('f_mes', optionsData.mes, 'mesid', 'mes');
+                fillSelect('f_dia', optionsData.dia, 'dia', 'dia');
+                fillSelect('f_status', optionsData.status, 'id', 'status');
+                fillSelect('f_padrino', optionsData.padrinos, 'nombre', 'nombre');
+                fillSelect('f_df', optionsData.df, 'df', 'df');
+            }
+
+            function fillSelect(id, data, valKey, textKey) {
+                const el = document.getElementById(id);
+                if (!el) { console.error(`Elemento no encontrado: ${id}`); return; }
+                el.innerHTML = '<option value="">Seleccionar...</option>' +
+                    data.map(i => `<option value="${i[valKey]}">${i[textKey]}</option>`).join('');
+            }
+
+            async function fetchMembers(term = '') {
+                document.getElementById('memberTableBody').innerHTML =
+                    '<tr><td colspan="11" style="color:var(--text-muted)">Cargando datos...</td></tr>';
+
+                let query = db.from('miembros').select('*', { count: 'exact' }).order('id', { ascending: false });
+                if (term) query = query.or(`nombre_completo.ilike.%${term}%,ine.ilike.%${term}%`);
+
+                const { data, error, count } = await query;
+                if (error) {
+                    console.error('Error cargando miembros:', error);
+                    document.getElementById('memberTableBody').innerHTML =
+                        `<tr><td colspan="11" style="color:#ef4444">Error: ${error.message}</td></tr>`;
+                    return;
+                }
+                console.log(`Miembros cargados: ${(data || []).length} de ${count} total`);
+                allMiembros = data || [];
+                renderMemberTable();
+            }
+
+            function renderMemberTable() {
+                const tbody = document.getElementById('memberTableBody');
+                tbody.innerHTML = allMiembros.map(m => `
+                <tr>
+                    <td>
+                        <div style="display:flex; gap:0.5rem">
+                            <button onclick='editMember(${JSON.stringify(m).replace(/'/g, "&apos;")})' style="background:none; border:none; color:var(--text-muted); cursor:pointer">
+                                <i data-lucide="edit-2" style="width:16px"></i>
+                            </button>
+                            <button onclick="deleteMember(${m.id})" style="background:none; border:none; color:var(--text-muted); cursor:pointer">
+                                <i data-lucide="trash-2" style="width:16px"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td><div style="font-weight:600">${m.nombre_completo}</div></td>
+                    <td>${m.ine || ''}</td>
+                    <td>${m.calle || ''}</td>
+                    <td>${m.num || ''}</td>
+                    <td>${m.colonia || ''}</td>
+                    <td>${m.cp || ''}</td>
+                    <td>${m.seccion || ''}</td>
+                    <td>${m.celular || ''}</td>
+                    <td><span class="badge">${optionsData.status.find(s => s.id == m.status)?.status || m.status || ''}</span></td>
+                    <td style="color:var(--text-muted); font-size:0.8rem">${m.padrino || ''}</td>
+                </tr>
+            `).join('');
+                lucide.createIcons();
+            }
+
+            // CRUD
+            function openMemberModal() {
+                document.getElementById('memberForm').reset();
+                document.getElementById('memberId').value = '';
+                document.getElementById('modalTitle').innerText = 'Nuevo Miembro';
+                document.getElementById('memberModal').style.display = 'flex';
+            }
+
+            window.editMember = (m) => {
+                document.getElementById('memberId').value = m.id;
+                document.getElementById('f_nombres').value = m.nombres || '';
+                document.getElementById('f_paterno').value = m.paterno || '';
+                document.getElementById('f_materno').value = m.materno || '';
+                document.getElementById('f_sexo').value = m.sexo || '';
+                document.getElementById('f_ine').value = m.ine || '';
+                document.getElementById('f_mes').value = m.mes || '';
+                document.getElementById('f_dia').value = m.dia || '';
+                document.getElementById('f_fecha_afiliacion').value = m.fecha_afiliacion || '';
+                document.getElementById('f_status').value = m.status || '';
+                document.getElementById('f_padrino').value = m.padrino || '';
+                document.getElementById('f_df').value = m.df || '';
+                document.getElementById('f_celular').value = m.celular || '';
+                document.getElementById('f_email').value = m.email || '';
+                document.getElementById('f_calle').value = m.calle || '';
+                document.getElementById('f_num').value = m.num || '';
+                document.getElementById('f_colonia').value = m.colonia || '';
+                document.getElementById('f_cp').value = m.cp || '';
+                document.getElementById('f_seccion').value = m.seccion || '';
+                document.getElementById('f_observaciones').value = m.observaciones || '';
+
+                document.getElementById('modalTitle').innerText = 'Editar Miembro';
+                document.getElementById('memberModal').style.display = 'flex';
+                lucide.createIcons();
+            };
+
+            function closeModal() {
+                document.getElementById('memberModal').style.display = 'none';
+            }
+
+            async function saveMember(e) {
+                e.preventDefault();
+                const id = document.getElementById('memberId').value;
+                const data = {
+                    nombres: document.getElementById('f_nombres').value,
+                    paterno: document.getElementById('f_paterno').value,
+                    materno: document.getElementById('f_materno').value,
+                    sexo: document.getElementById('f_sexo').value,
+                    ine: document.getElementById('f_ine').value,
+                    mes: document.getElementById('f_mes').value,
+                    dia: document.getElementById('f_dia').value,
+                    fecha_afiliacion: document.getElementById('f_fecha_afiliacion').value || null,
+                    status: document.getElementById('f_status').value || null,
+                    padrino: document.getElementById('f_padrino').value,
+                    df: document.getElementById('f_df').value || null,
+                    celular: document.getElementById('f_celular').value || null,
+                    email: document.getElementById('f_email').value,
+                    calle: document.getElementById('f_calle').value,
+                    num: document.getElementById('f_num').value,
+                    colonia: document.getElementById('f_colonia').value,
+                    cp: document.getElementById('f_cp').value || null,
+                    seccion: document.getElementById('f_seccion').value || null,
+                    observaciones: document.getElementById('f_observaciones').value,
+                    nombre_completo: `${document.getElementById('f_nombres').value} ${document.getElementById('f_paterno').value} ${document.getElementById('f_materno').value}`.trim()
+                };
+
+                // Clean numbers
+                ['cp', 'seccion', 'df', 'celular', 'status'].forEach(k => { if (data[k]) data[k] = Number(data[k]); });
+
+                try {
+                    let error;
+                    if (id) {
+                        const res = await db.from('miembros').update(data).eq('id', id);
+                        error = res.error;
+                    } else {
+                        const res = await db.from('miembros').insert([data]);
+                        error = res.error;
+                    }
+                    if (error) throw error;
+                    closeModal();
+                    fetchMembers();
+                } catch (error) {
+                    alert('Error al guardar: ' + error.message);
+                }
+            }
+
+            async function deleteMember(id) {
+                if (!confirm('¿Seguro que deseas eliminar este registro?')) return;
+                const { error } = await db.from('miembros').delete().eq('id', id);
+                if (!error) fetchMembers();
+                else alert(error.message);
+            }
+
+            // SEARCH
+            function handleSearch(e) {
+                if (e.key === 'Enter') fetchMembers(e.target.value);
+            }
+
+            // CUMPLEAÑOS SECTION
+            // Mapa de nombres de meses para mostrar
+            const MESES_NOMBRES = ['', 'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+
+            function getMesNombre(numStr) {
+                const num = parseInt(numStr);
+                return (num >= 1 && num <= 12) ? MESES_NOMBRES[num] : numStr || '';
+            }
+
+            function initCumpleSelectors() {
+                // Fill month selector - usar mesid (número) como valor, nombre como texto
+                const mesSelect = document.getElementById('cumple_mes');
+                mesSelect.innerHTML = '<option value="">Todos los meses</option>' +
+                    optionsData.mes.map(m => `<option value="${m.mesid}">${m.mes}</option>`).join('');
+
+                // Pre-select current month (getMonth() devuelve 0-11, sumamos 1)
+                mesSelect.value = String(new Date().getMonth() + 1);
+
+                // Fill day selector - usar dia numérico como valor
+                const diaSelect = document.getElementById('cumple_dia');
+                diaSelect.innerHTML = '<option value="">Todos los días</option>' +
+                    optionsData.dia.map(d => `<option value="${d.dia}">${d.dia}</option>`).join('');
+
+                fetchCumpleanos();
+            }
+
+            async function fetchCumpleanos() {
+                const selectedMes = document.getElementById('cumple_mes').value;
+                const selectedDia = document.getElementById('cumple_dia').value;
+
+                let query = db.from('miembros').select('nombre_completo, mes, dia, celular, padrino');
+
+                // Comparar con el valor numérico (como texto, ya que miembros.mes es text)
+                if (selectedMes) query = query.eq('mes', selectedMes);
+                if (selectedDia) query = query.eq('dia', selectedDia);
+
+                query = query.order('dia');
+
+                const { data, error } = await query;
+                if (error) console.error('Error cumpleaños:', error);
+                const results = data || [];
+
+                document.getElementById('cumpleCount').innerText = `${results.length} cumpleañero(s) encontrado(s)`;
+                document.getElementById('cumpleTableBody').innerHTML = results.length === 0
+                    ? '<tr><td colspan="5" style="text-align:center; color:var(--text-muted)">No se encontraron cumpleañeros</td></tr>'
+                    : results.map(m => `
+                    <tr>
+                        <td style="font-weight:600">${m.nombre_completo}</td>
+                        <td>${getMesNombre(m.mes)}</td>
+                        <td>${m.dia || ''}</td>
+                        <td>${m.celular || '-'}</td>
+                    </tr>
+                `).join('');
+            }
+
+            async function fetchPadrinos() {
+                const { data, error } = await db.from('padrinos').select('*').order('nombre');
+                if (error) {
+                    console.error('Error cargando padrinos:', error);
+                    return;
+                }
+
+                optionsData.padrinos = data || [];
+                fillSelect('f_padrino', optionsData.padrinos, 'nombre', 'nombre');
+
+                document.getElementById('padrinosTableBody').innerHTML = (data || []).map(p => `
+                <tr>
+                    <td>
+                        <div style="display:flex; gap:0.5rem">
+                            <button onclick='editPadrino(${JSON.stringify(p)})' style="background:none; border:none; color:var(--text-muted); cursor:pointer">
+                                <i data-lucide="edit-2" style="width:16px"></i>
+                            </button>
+                            <button onclick="deletePadrino(${p.id})" style="background:none; border:none; color:var(--text-muted); cursor:pointer">
+                                <i data-lucide="trash-2" style="width:16px"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td>${p.nombre}</td>
+                </tr>
+            `).join('');
+                lucide.createIcons();
+            }
+
+            function openPadrinoModal() {
+                document.getElementById('padrinoForm').reset();
+                document.getElementById('padrinoId').value = '';
+                document.getElementById('padrinoModalTitle').innerText = 'Nuevo Padrino';
+                document.getElementById('padrinoModal').style.display = 'flex';
+            }
+
+            function closePadrinoModal() {
+                document.getElementById('padrinoModal').style.display = 'none';
+            }
+
+            window.editPadrino = (p) => {
+                document.getElementById('padrinoId').value = p.id;
+                document.getElementById('p_nombre').value = p.nombre;
+                document.getElementById('padrinoModalTitle').innerText = 'Editar Padrino';
+                document.getElementById('padrinoModal').style.display = 'flex';
+            };
+
+            async function savePadrino(e) {
+                e.preventDefault();
+                const id = document.getElementById('padrinoId').value;
+                const nombre = document.getElementById('p_nombre').value;
+
+                try {
+                    let error;
+                    if (id) {
+                        const res = await db.from('padrinos').update({ nombre }).eq('id', id);
+                        error = res.error;
+                    } else {
+                        const res = await db.from('padrinos').insert([{ nombre }]);
+                        error = res.error;
+                    }
+                    if (error) throw error;
+                    closePadrinoModal();
+                    fetchPadrinos();
+                    fetchMembers();
+                } catch (error) {
+                    alert('Error al guardar padrino: ' + error.message);
+                }
+            }
+
+            async function deletePadrino(id) {
+                if (!confirm('¿Seguro que deseas eliminar este padrino?')) return;
+                const { error } = await db.from('padrinos').delete().eq('id', id);
+                if (!error) fetchPadrinos();
+                else alert('Error al eliminar: ' + error.message);
+            }
+
+            // STATUS SECTION
+            async function fetchStatusList() {
+                const { data, error } = await db.from('status').select('*').order('id');
+                if (error) {
+                    console.error('Error cargando status:', error);
+                    return;
+                }
+
+                // Actualizar optionsData para que otros selectores se enteren
+                optionsData.status = data || [];
+
+                // Re-llenar selectores del formulario de miembros para que estén al día
+                fillSelect('f_status', optionsData.status, 'id', 'status');
+
+                const tbody = document.getElementById('statusTableBody');
+                tbody.innerHTML = (data || []).map(s => `
+                <tr>
+                    <td>
+                        <div style="display:flex; gap:0.5rem">
+                            <button onclick='editStatus(${JSON.stringify(s)})' style="background:none; border:none; color:var(--text-muted); cursor:pointer">
+                                <i data-lucide="edit-2" style="width:16px"></i>
+                            </button>
+                            <button onclick="deleteStatus(${s.id})" style="background:none; border:none; color:var(--text-muted); cursor:pointer">
+                                <i data-lucide="trash-2" style="width:16px"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td>${s.id}</td>
+                    <td><span class="badge">${s.status}</span></td>
+                </tr>
+            `).join('');
+                lucide.createIcons();
+            }
+
+            function openStatusModal() {
+                document.getElementById('statusForm').reset();
+                document.getElementById('statusId').value = '';
+                document.getElementById('statusModalTitle').innerText = 'Nuevo Status';
+                document.getElementById('statusModal').style.display = 'flex';
+            }
+
+            function closeStatusModal() {
+                document.getElementById('statusModal').style.display = 'none';
+            }
+
+            window.editStatus = (s) => {
+                document.getElementById('statusId').value = s.id;
+                document.getElementById('s_nombre').value = s.status;
+                document.getElementById('statusModalTitle').innerText = 'Editar Status';
+                document.getElementById('statusModal').style.display = 'flex';
+            };
+
+            async function saveStatus(e) {
+                e.preventDefault();
+                const id = document.getElementById('statusId').value;
+                const nombre = document.getElementById('s_nombre').value;
+
+                try {
+                    let error;
+                    if (id) {
+                        const res = await db.from('status').update({ status: nombre }).eq('id', id);
+                        error = res.error;
+                    } else {
+                        const res = await db.from('status').insert([{ status: nombre }]);
+                        error = res.error;
+                    }
+                    if (error) throw error;
+                    closeStatusModal();
+                    fetchStatusList();
+                    renderChart();
+                    // Opcional: recargar miembros si el cambio de nombre afecta la tabla visible
+                    fetchMembers();
+                } catch (error) {
+                    alert('Error al guardar status: ' + error.message);
+                }
+            }
+
+            async function deleteStatus(id) {
+                if (!confirm('¿Seguro que deseas eliminar este status? Los registros vinculados conservarán el ID pero no el nombre.')) return;
+                const { error } = await db.from('status').delete().eq('id', id);
+                if (!error) {
+                    fetchStatusList();
+                    renderChart();
+                } else {
+                    alert('Error al eliminar: ' + error.message);
+                }
+            }
+
+            async function renderChart() {
+                const { data } = await db.from('miembros').select('status');
+                const counts = {};
+                data.forEach(m => {
+                    const name = optionsData.status.find(s => s.id == m.status)?.status || 'Desconocido';
+                    counts[name] = (counts[name] || 0) + 1;
+                });
+
+                if (chartInstance) chartInstance.destroy();
+                const ctx = document.getElementById('statusChart').getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(counts),
+                        datasets: [{
+                            label: 'Miembros por Status',
+                            data: Object.values(counts),
+                            backgroundColor: 'rgba(56, 189, 248, 0.5)',
+                            borderColor: '#38bdf8',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' } } }
+                    }
+                });
+            }
+
+            // EXPORT
+            async function getFilteredData() {
+                const fPadrino = document.getElementById('rep_f_padrino').value;
+                const fStatus = document.getElementById('rep_f_status').value;
+                const fDf = document.getElementById('rep_f_df').value;
+                const fColonia = document.getElementById('rep_f_colonia').value;
+                const fSeccion = document.getElementById('rep_f_seccion').value;
+
+                let data = [...allMiembros];
+
+                if (fPadrino) data = data.filter(m => m.padrino === fPadrino);
+                if (fStatus) data = data.filter(m => m.status == fStatus);
+                if (fDf) data = data.filter(m => m.df == fDf);
+                if (fColonia) data = data.filter(m => m.colonia === fColonia);
+                if (fSeccion) data = data.filter(m => m.seccion == fSeccion);
+
+                return data;
+            }
+
+            async function generatePDF() {
+                const fPadrino = document.getElementById('rep_f_padrino').value;
+                const data = await getFilteredData();
+
+                if (data.length === 0) {
+                    alert('No hay datos con los filtros seleccionados');
+                    return;
+                }
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('l', 'mm', 'a4');
+
+                doc.setFontSize(18);
+                const title = fPadrino ? `Reporte: ${fPadrino}` : `Reporte General de Miembros`;
+                doc.text(title, 14, 20);
+
+                const tableData = data.map(m => [
+                    m.nombre_completo,
+                    m.calle || '',
+                    m.num || '',
+                    m.colonia || '',
+                    m.cp || '',
+                    m.celular || '',
+                    optionsData.status.find(s => s.id == m.status)?.status || m.status,
+                    m.seccion || ''
+                ]);
+
+                doc.autoTable({
+                    head: [['Nombre', 'Calle', 'Num', 'Colonia', 'C.P.', 'Celular', 'Status', 'Sección']],
+                    body: tableData,
+                    startY: 30,
+                    theme: 'grid',
+                    styles: { fontSize: 8 },
+                    headStyles: { fillStyle: 'DF', fillColor: [37, 99, 235] }
+                });
+
+                doc.save(`${title.replace(': ', '_')}.pdf`);
+            }
+
+            async function exportCSV() {
+                const data = await getFilteredData();
+                if (data.length === 0) {
+                    alert('No hay datos con los filtros seleccionados');
+                    return;
+                }
+
+                let csv = 'Nombre,Calle,Num,Colonia,CP,Celular,Status,Seccion\n';
+                data.forEach(m => {
+                    const status = optionsData.status.find(s => s.id == m.status)?.status || m.status;
+                    csv += `"${m.nombre_completo}","${m.calle || ''}","${m.num || ''}","${m.colonia || ''}","${m.cp || ''}","${m.celular || '-'}","${status}","${m.seccion || ''}"\n`;
+                });
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.setAttribute('hidden', '');
+                a.setAttribute('href', url);
+                a.setAttribute('download', 'miembros_filtrados.csv');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        </script>
+</body>
+
+</html>
